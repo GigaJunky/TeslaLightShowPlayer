@@ -1,0 +1,1225 @@
+<html>
+  <head>
+    <style>
+      body{background-color: black;}
+      .grid-container { display: grid;   grid-gap: 5px 5px; grid-template-columns: auto auto}
+      .channel { height: 20px; width: 200px; background-color: gray; text-align: center; }
+      .BGOn { background-color: white }
+      .BGOff { background-color: black }
+    </style>
+  </head>
+<body>
+  <!--
+  <img id="headlights" src="./s_headlights.png" style="display: none" alt="Tesla Model S Headlights">
+  <canvas id="Canvas"style="border:1px solid black" style="display: none">No Canvas!</canvas>
+  -->
+  <div class="grid-container">
+  <div class="LeftOuterMainBeam channel"></div>
+  <div class="RightOuterMainBeam channel" ></div>
+  <div class="LeftInnerMainBeam  channel" ></div>
+  <div class="RightInnerMainBeam channel" ></div>
+  <div class="LeftSignature channel" ></div>
+  <div class="RightSignature channel" ></div>
+  <div class="LeftChannel4 channel" ></div>
+  <div class="RightChannel4 channel" ></div>
+  <div class="LeftChannel5 channel" ></div>
+  <div class="RightChannel5 channel" ></div>
+  
+  <div class="LeftChannel6 channel" ></div>
+  <div class="RightChannel6 channel" ></div>
+  <div class="LeftFrontTurn channel" ></div>
+  <div class="RightFrontTurn channel" ></div>
+  <div class="LeftFrontFog channel" ></div>
+  <div class="RightFrontFog channel" ></div>
+  <div class="LeftAuxPark channel" ></div>
+  <div class="RightAuxPark channel" ></div>
+  <div class="LeftSideMarker channel" ></div>
+  <div class="RightSideMarker channel" ></div>
+
+  <div class="LeftSideRepeater channel" ></div>
+  <div class="RightSideRepeater channel" ></div>
+  <div class="LeftRearTurn channel" ></div>
+  <div class="RightRearTurn channel" ></div>
+
+  <div class="LeftFalconDoor channel" ></div>
+  <div class="RightFalconDoor channel" ></div>
+  <div class="LeftFrontDoor channel" ></div>
+  <div class="RightFrontDoor channel" ></div>
+  
+  <div class="LeftMirror channel" ></div>
+  <div class="RightMirror channel" ></div>
+  
+  <div class="LeftFrontWindow channel" ></div>
+  <div class="RightFrontWindow channel" ></div>
+  <div class="LeftRearWindow channel" ></div>
+  <div class="RightRearWindow channel" ></div>
+
+  <div class="LeftFrontDoorHandle channel" ></div>
+  <div class="RightFrontDoorHandle channel" ></div>
+  <div class="LeftRearDoorHandle channel" ></div>
+  <div class="RightRearDoorHandle channel" ></div>
+
+  <div class="LeftTail channel" ></div>
+  <div class="RightTail channel" ></div>
+  
+  <div class="BrakeLights channel" ></div>
+  <div class="BrakeLights channel" ></div>
+  <div class="ReverseLights channel" ></div>
+  <div class="ReverseLights channel" ></div>
+  <div class="RearFogLights channel" ></div>
+  <div class="RearFogLights channel" ></div>
+  <div class="LicensePlate channel" ></div>
+  <div class="LicensePlate channel" ></div>
+ 
+  <div class="ChargePort channel" ></div>
+  <div class="ChargePort channel" ></div>
+  <div class="Liftgate channel" ></div>
+  <div class="Liftgate channel" ></div>
+  </div>
+  <input id="fileItem" type="file" onchange="readFile()" multiple>
+  <!--  webkitdirectory directory >-->
+  <audio id="Audio"></audio>
+  <button id="btnPlay" onclick="onPlay()">Play</button>
+  <div  id="display" style="height: 40px" class="BGOn"></div>
+
+</body>
+
+<script>
+/* Tesla LightShow Player v0.1 beta
+  bitjunky@hotmail.com 2021-12-30
+*/
+let frameInterval, h //fseq header
+
+const enc = new TextDecoder("utf-8")
+, Audio = document.getElementById("Audio")
+, display = document.getElementById("display")
+, channels = document.getElementsByClassName('channel')
+, TMSChNames = "Left Outer Main Beam,Right Outer Main Beam,Left Inner Main Beam,Right Inner Main Beam,Left Signature,Right Signature,Left Channel 4,Right Channel 4,Left Channel 5,Right Channel 5,Left Channel 6,Right Channel 6,Left Front Turn,Right Front Turn,Left Front Fog,Right Front Fog,Left Aux Park,Right Aux Park,Left Side Marker,Right Side Marker,Left Side Repeater,Right Side Repeater,Left Rear Turn,Right Rear Turn,Brake Lights,Left Tail,Right Tail,Reverse Lights,Rear Fog Lights,License Plate,Left Falcon Door,Right Falcon Door,Left Front Door,Right Front Door,Left Mirror,Right Mirror,Left Front Window,Left Rear Window,Right Front Window,Right Rear Window,Liftgate,Left Front Door Handle,Left Rear Door Handle,Right Front Door Handle,Right Rear Door Handle,Charge Port,NA1,NA2".split(',')
+  for (const cn of TMSChNames) {
+    let c = document.getElementsByClassName(cn.replace(/ /g,''))
+    if(c.length == 0) console.log(`${cn} not found!`)
+      for (const e of c) e.innerHTML = cn
+}
+
+function readFile()
+{
+  const files = findLSFiles(event.target.files)
+  if(!files){
+    alert('Please select both lightshow.sfeq and lightshow.mp3|wav files by (Ctrl-A or Shift Select)!')
+    return
+
+  }
+  Audio.src = window.URL.createObjectURL(files.audio) 
+  let reader = new FileReader()
+  reader.readAsArrayBuffer(files.fseq)
+  reader.onload = () => { h = readHeader(new Uint8Array(reader.result)) }
+}
+
+function findLSFiles(filelist)
+{
+   if(filelist.length < 2) return;
+   let files = {}
+   for (const f of filelist)
+      if(!files.fseq && f.name == 'lightshow.fseq') files.fseq = f
+      else if(!files.audio && /lightshow[.wav|.mp3]/.test(f.name) ) files.audio = f
+    
+  return files
+}
+
+//https://github.com/Cryptkeeper/fseq-file-format
+  function readHeader(ab)
+  {
+    let h = {}
+    console.log(ab.length)
+    h.Identifier = enc.decode(ab.subarray(0, 4))
+    h.ChannelDataOffset = readInt(ab.subarray(4,5))
+    h.MinorVersion = ab[6]
+    h.MajorVersion = ab[7]
+    h.HeaderLength = readInt(ab.subarray(8,9))
+    h.ChannelCount = readInt(ab.subarray(10,13))
+    h.FrameCount = readInt(ab.subarray(14,17))
+    h.StepTime = ab[18]
+    h.Flags = ab[19]
+    h.Compression = ab[20]
+    h.CompressionBlockCount = ab[21]
+    h.SparseRangeCount = ab[22]
+    h.Reserved = ab[23]
+    h.UniqueID = readInt(ab.subarray(24,31))
+    h.duration_s = h.FrameCount * h.StepTime / 1000
+    const e = valTesla(h)
+    console.log(e)
+    if(e.length > 0) return
+    h.vars = getVars(ab.subarray(h.HeaderLength, h.ChannelDataOffset-1))
+    h.data = ab
+    console.log(h)
+    return h
+  }
+
+  function onPlay() {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    console.log('play:', h)
+    if(!h) return
+    
+    if(frameInterval){
+      frameInterval = clearInterval(frameInterval)
+     Audio.pause()
+     Audio.currentTime = 0
+     return
+    }
+    Audio.play()
+
+    let f = 0
+    frameInterval = setInterval(function() {
+      let os = f * h.ChannelCount + h.ChannelDataOffset 
+        if (f < (h.FrameCount)) {
+            let frame = h.data.subarray(os ,os + h.ChannelCount)
+            display.innerHTML = `Frame#: ${f} Secs: ${f * (20/1000)} Values: + ${frame.toString()}`
+            toggleChannels(frame)
+
+        } else clearInterval(frameInterval)
+        f++
+    }, 20)
+  }
+  
+  function toggleChannels(chs) {
+    for (let i = 0; i < chs.length; i++){
+      let cn = TMSChNames[i].replace(/ /g,'')
+      let c = document.getElementsByClassName(cn)
+      for (const e of c) 
+        e.classList.toggle("BGOn", chs[i] !=0 )  
+    }
+  }
+
+  function valTesla(h)
+  {
+    let e = []
+    if (h.Identifier != 'PSEQ' || h.ChannelDataOffset < 24 || h.FrameCount < 1 || h.StepTime < 15 || h.MinorVersion != 0 || h.MajorVersion != 2)
+        e.push("Unknown file format, expected FSEQ v2.0")
+    if (h.ChannelCount != 48)
+        e.push(`Expected 48 channels, got ${h.ChannelCount}`)
+    if (h.Compression != 0)
+         e.push("Expected file format to be V2 Uncompressed")
+    if (h.duration_s > 5*60)
+       e.push(`Expected total duration to be less than 5 minutes or 300 seconds, got ${h.duration_s}}`)
+       return e
+  }
+
+  function getVars(v)
+  {
+    let o = 0, vs = []
+    while(o < v.length -4){
+      let l = readInt(v.subarray(o, o+1))
+      , c = enc.decode(v.subarray(o+2, o+4))
+      , d = enc.decode(v.subarray(o+4,o+l-1))
+      o += l
+      vs.push({l, c, d})
+    }
+    return vs
+  }
+
+  function readInt(array) {
+   let value = 0
+   for (let i = array.length -1; i >= 0 ; i--) //little endian
+      value = (value * 256) + array[i]
+   return value
+  }
+  
+</script>
+</html>
